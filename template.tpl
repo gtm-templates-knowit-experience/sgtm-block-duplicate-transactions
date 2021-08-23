@@ -14,7 +14,7 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Block Duplicate Transactions",
-  "description": "Blocks duplicate Transactions by checking transaction_id  against previous transaction_id\u0027s is stored in a cookie.",
+  "description": "Block Duplicate Transactions by checking transaction_id  against previous transaction_id\u0027s is stored in a cookie.",
 "categories": ["UTILITY","TAG_MANAGEMENT","ANALYTICS"],
   "containerContexts": [
     "SERVER"
@@ -64,6 +64,33 @@ ___TEMPLATE_PARAMETERS___
             "type": "EQUALS"
           }
         ]
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "limitCookie",
+        "checkboxText": "Limit  Cookie Size",
+        "simpleValueType": true,
+        "help": "Limit  number of Transaction ID\u0027s stored in the cookie to avoid that the size of the cookie grows out of proportions.\n\u003cbr /\u003e\u003cbr /\u003e\nWhen the limit is reached, the oldest Transaction ID(s) will be deleted from the cookie to make space for the latest Transaction ID.",
+        "alwaysInSummary": true
+      },
+      {
+        "type": "TEXT",
+        "name": "limitCookieNumber",
+        "displayName": "Max Transaction ID\u0027s stored in Cookie",
+        "simpleValueType": true,
+        "defaultValue": 10,
+        "enablingConditions": [
+          {
+            "paramName": "limitCookie",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "valueValidators": [
+          {
+            "type": "POSITIVE_NUMBER"
+          }
+        ]
       }
     ]
   },
@@ -98,9 +125,11 @@ ___TEMPLATE_PARAMETERS___
             "type": "POSITIVE_NUMBER"
           }
         ],
-        "defaultValue": 365,
+        "defaultValue": 90,
         "help": "Enter how many days the cookie should live.",
-        "alwaysInSummary": true
+        "alwaysInSummary": true,
+        "valueHint": "90",
+        "valueUnit": "days"
       },
       {
         "type": "TEXT",
@@ -136,7 +165,7 @@ ___TEMPLATE_PARAMETERS___
           }
         ],
         "simpleValueType": true,
-        "help": "The cookie\u0027s SameSite attribute value to use when setting the server cookie. The SameSite attribute controls what contexts your cookie will be used in.  \n\u003cbr /\u003e\u003cbr /\u003e\nTo see the differences between Lax and Strict settings, see the \u003ca href\u003d\"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite\" target\u003d\"_blank\"\u003e\u003cstrong\u003eMDN documentation\u003c/strong\u003e\u003c/a\u003e. If set to \u0027Value not set\u0027 the SameSite attribute will not be written.",
+        "help": "The SameSite attribute controls what contexts your cookie will be used in.  \n\u003cbr /\u003e\u003cbr /\u003e\nTo see the differences between Lax and Strict settings, see the \u003ca href\u003d\"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite\" target\u003d\"_blank\"\u003e\u003cstrong\u003eMDN documentation\u003c/strong\u003e\u003c/a\u003e. If set to \u0027Value not set\u0027 the SameSite attribute will not be written.",
         "alwaysInSummary": true
       },
       {
@@ -158,7 +187,6 @@ const queryPermission = require('queryPermission');
 const getEventData = require('getEventData');
 
 const keyPath = 'transaction_id';
-
 if (queryPermission('read_event_data', keyPath)) {
   const transaction_id = data.transactionIdVariable ? data.transactionIdVariable : getEventData(keyPath);
 
@@ -171,6 +199,10 @@ if (queryPermission('read_event_data', keyPath)) {
       
       if(cookieValue.indexOf(transaction_id) === -1) {
         cookieValue.push(transaction_id);
+        
+        if(data.limitCookie && cookieValue.length > data.limitCookieNumber) {
+          cookieValue.splice(0, cookieValue.length-data.limitCookieNumber);        
+        }       
         const setCookie = require('setCookie');
         const cookieOptions = {
           domain: data.cookieDomain,
@@ -330,6 +362,6 @@ setup: |-
 
 ___NOTES___
 
-Created on 8/22/2021, 4:25:18 PM
+Created on 8/23/2021, 4:21:46 PM
 
 
