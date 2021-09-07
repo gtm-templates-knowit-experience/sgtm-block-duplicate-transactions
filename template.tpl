@@ -14,8 +14,8 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Block Duplicate Transactions",
-  "description": "Block Duplicate Transactions by checking transaction_id  against previous transaction_id\u0027s is stored in a cookie.",
-"categories": ["UTILITY","TAG_MANAGEMENT","ANALYTICS"],
+  "description": "Block Duplicate Ecommerce Transactions by checking incoming transaction_id  against previous transaction_id\u0027s is stored in a cookie.",
+"categories": ["UTILITY","ANALYTICS","TAG_MANAGEMENT"],
   "containerContexts": [
     "SERVER"
   ]
@@ -28,18 +28,17 @@ ___TEMPLATE_PARAMETERS___
   {
     "type": "GROUP",
     "name": "transactionIdInputGroup",
-    "displayName": "",
+    "displayName": "Transaction ID Input",
     "groupStyle": "NO_ZIPPY",
     "subParams": [
       {
         "type": "SELECT",
         "name": "transactionIdInput",
-        "displayName": "Transaction ID Input",
         "macrosInSelect": false,
         "selectItems": [
           {
             "value": "transaction_id",
-            "displayValue": "transaction_id"
+            "displayValue": "Event Data (transaction_id)"
           },
           {
             "value": "variable",
@@ -47,7 +46,6 @@ ___TEMPLATE_PARAMETERS___
           }
         ],
         "simpleValueType": true,
-        "help": "By default, \u003cstrong\u003etransaction_id\u003c/strong\u003e will be read from \u003cstrong\u003eEvent Data\u003c/strong\u003e, but you can also choose to use a \u003cstrong\u003eVariable\u003c/strong\u003e as input.",
         "alwaysInSummary": true
       },
       {
@@ -64,31 +62,62 @@ ___TEMPLATE_PARAMETERS___
             "type": "EQUALS"
           }
         ]
-      },
+      }
+    ],
+    "help": "By default, \u003cstrong\u003etransaction_id\u003c/strong\u003e will be read from \u003cstrong\u003eEvent Data\u003c/strong\u003e, but you can also choose to use a \u003cstrong\u003eVariable\u003c/strong\u003e as input."
+  },
+  {
+    "type": "GROUP",
+    "name": "consentGroup",
+    "displayName": "Consent Check",
+    "groupStyle": "NO_ZIPPY",
+    "subParams": [
       {
         "type": "CHECKBOX",
-        "name": "limitCookie",
-        "checkboxText": "Limit  Cookie Size",
+        "name": "consentCheck",
+        "checkboxText": "Only set Cookie if Consent is given",
         "simpleValueType": true,
-        "help": "Limit  number of Transaction ID\u0027s stored in the cookie to avoid that the size of the cookie grows out of proportions.\n\u003cbr /\u003e\u003cbr /\u003e\nWhen the limit is reached, the oldest Transaction ID(s) will be deleted from the cookie to make space for the latest Transaction ID.",
+        "help": "Only set Cookie with Transaction ID\u0027s if the user has given consent. \n\u003cbr /\u003e\n\u003cbr /\u003e\nWhich level of Consent needed for setting the cookie, and which incoming parameter to check is up to you. But if you for example are using \u003cstrong\u003eGoogle Consent Mode\u003c/strong\u003e, you could check against the \u003cstrong\u003egcs\u003c/strong\u003e parameter.\n\u003cbr /\u003e\n\u003cbr /\u003e\nIf the user \u003cstrong\u003ehaven\u0027t given consent\u003c/strong\u003e, any existing Block Duplicate Transactions \u003cstrong\u003ecookie will be deleted\u003c/strong\u003e.",
         "alwaysInSummary": true
       },
       {
-        "type": "TEXT",
-        "name": "limitCookieNumber",
-        "displayName": "Max Transaction ID\u0027s stored in Cookie",
-        "simpleValueType": true,
-        "defaultValue": 10,
+        "type": "SIMPLE_TABLE",
+        "name": "consentParam",
+        "displayName": "Add Consent Check",
+        "simpleTableColumns": [
+          {
+            "defaultValue": "",
+            "displayName": "Consent Input",
+            "name": "consentInput",
+            "type": "SELECT",
+            "macrosInSelect": true,
+            "valueHint": "{{Google Consent Mode Query Parameter}}",
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ]
+          },
+          {
+            "defaultValue": "",
+            "displayName": "Consent Value",
+            "name": "consentValue",
+            "type": "TEXT",
+            "valueHint": "G111"
+          }
+        ],
         "enablingConditions": [
           {
-            "paramName": "limitCookie",
+            "paramName": "consentCheck",
             "paramValue": true,
             "type": "EQUALS"
           }
         ],
+        "help": "Select a \u003cstrong\u003eVarible\u003c/strong\u003e that contains Consent Information (e.g. Google Consent Mode). In the \u003cstrong\u003eConsent Value\u003c/strong\u003e field, enter a value from the Variable that signals Consent (e.g. \u003cstrong\u003eG111\u003c/strong\u003e if you are checking against GCM).",
+        "newRowButtonText": "Add Consent Check",
         "valueValidators": [
           {
-            "type": "POSITIVE_NUMBER"
+            "type": "NON_EMPTY"
           }
         ]
       }
@@ -100,6 +129,65 @@ ___TEMPLATE_PARAMETERS___
     "displayName": "Cookie Settings",
     "groupStyle": "NO_ZIPPY",
     "subParams": [
+      {
+        "type": "CHECKBOX",
+        "name": "sha256Sync",
+        "checkboxText": "Hash transaction_id as SHA-256",
+        "simpleValueType": true,
+        "help": "Hash \u003cstrong\u003etransaction_id\u003c/strong\u003e stored in the cookie with \u003cstrong\u003eSHA-256\u003c/strong\u003e .\n\u003cbr/\u003e\u003cbr/\u003e\nThis makes the \u003cstrong\u003etransaction_id\u003c/strong\u003e stored in the cookie unrecognizable.",
+        "alwaysInSummary": true
+      },
+      {
+        "type": "SELECT",
+        "name": "sha256Encoding",
+        "displayName": "SHA-256 Encoding",
+        "selectItems": [
+          {
+            "value": "base64",
+            "displayValue": "Base64"
+          },
+          {
+            "value": "hex",
+            "displayValue": "Hex"
+          }
+        ],
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "sha256Sync",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ]
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "limitCookie",
+        "checkboxText": "Limit  Cookie Size",
+        "simpleValueType": true,
+        "help": "Limit  number of Transaction ID\u0027s stored in the cookie to avoid that the size of the cookie grows too big.\n\u003cbr /\u003e\u003cbr /\u003e\nWhen the limit is reached, the oldest Transaction ID will be deleted from the cookie when a new Transaction ID is added.",
+        "alwaysInSummary": true
+      },
+      {
+        "type": "TEXT",
+        "name": "limitCookieNumber",
+        "displayName": "Max Transaction ID\u0027s stored in Cookie",
+        "simpleValueType": true,
+        "defaultValue": 5,
+        "enablingConditions": [
+          {
+            "paramName": "limitCookie",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "valueValidators": [
+          {
+            "type": "POSITIVE_NUMBER"
+          }
+        ],
+        "alwaysInSummary": true
+      },
       {
         "type": "TEXT",
         "name": "cookieName",
@@ -188,35 +276,55 @@ const getEventData = require('getEventData');
 
 const keyPath = 'transaction_id';
 if (queryPermission('read_event_data', keyPath)) {
-  const transaction_id = data.transactionIdVariable ? data.transactionIdVariable : getEventData(keyPath);
+  let transaction_id = data.transactionIdVariable ? data.transactionIdVariable : getEventData(keyPath);
 
   if(transaction_id) {
-    const JSON = require('JSON');
-    const getCookieValues = require('getCookieValues');
+    const setCookie = require('setCookie');
     const cookieName = data.cookieName;
-    if (queryPermission('get_cookies', cookieName)) {
-      let cookieValue = getCookieValues(cookieName).length>0 ? JSON.parse(getCookieValues(cookieName)) : JSON.parse('[]');
+    const cookieOptions = {
+      domain: data.cookieDomain,
+      path: '/',
+      sameSite: data.cookieSameSite,
+      secure: true
+    };
+
+    let consent = true;
+    if(data.consentCheck && data.consentParam) {
+      data.consentParam.forEach((consentArray) => {
+        if (consentArray.consentInput === consentArray.consentValue) {
+          consent = true;
+        } else {
+          consent = false;
+          cookieOptions['max-age'] = 0;
+          setCookie(cookieName, '', cookieOptions);
+        }
+      });
+    }
+    if(consent){ 
+      const JSON = require('JSON');
+      const getCookieValues = require('getCookieValues');
+      if (queryPermission('get_cookies', cookieName)) {
+        let cookieValue = getCookieValues(cookieName).length>0 ? JSON.parse(getCookieValues(cookieName)) : JSON.parse('[]');
       
-      if(cookieValue.indexOf(transaction_id) === -1) {
-        cookieValue.push(transaction_id);
+        if(data.sha256Sync) {
+          const sha256Sync = require('sha256Sync');
+          transaction_id = sha256Sync(transaction_id, {outputEncoding: data.sha256Encoding});
+        }
+      
+        if(cookieValue.indexOf(transaction_id) === -1) {
+          cookieValue.push(transaction_id);
         
-        if(data.limitCookie && cookieValue.length > data.limitCookieNumber) {
-          cookieValue.splice(0, cookieValue.length-data.limitCookieNumber);        
-        }       
-        const setCookie = require('setCookie');
-        const cookieOptions = {
-          domain: data.cookieDomain,
-          path: '/',
-          'max-age': (data.cookieExpiration*86400),
-          sameSite: data.cookieSameSite,
-          secure: true
-        };
+          if(data.limitCookie && cookieValue.length > data.limitCookieNumber) {
+            cookieValue.splice(0, cookieValue.length-data.limitCookieNumber);        
+          }       
         
-        if (data.cookieHttpOnly) cookieOptions.HttpOnly = data.cookieHttpOnly;
-        setCookie(cookieName, JSON.stringify(cookieValue), cookieOptions, true);
-          return false;
-     } else if(cookieValue.indexOf(transaction_id) > -1) {
-          return true;
+          cookieOptions['max-age'] = (data.cookieExpiration*86400);
+          if (data.cookieHttpOnly) cookieOptions.HttpOnly = data.cookieHttpOnly;
+          setCookie(cookieName, JSON.stringify(cookieValue), cookieOptions, true);
+            return false;
+       } else if(cookieValue.indexOf(transaction_id) > -1) {
+            return true;
+        }
       }
     }
   }
@@ -362,6 +470,6 @@ setup: |-
 
 ___NOTES___
 
-Created on 8/23/2021, 4:21:46 PM
+Created on 8/31/2021, 9:02:14 PM
 
 
