@@ -14,7 +14,6 @@ Transaction ID's will be stored in the cookie as an array (e.g. ["123","456"]).
 As standard **transaction_id** is read from **Event Data**, but you can also read **transaction_id** from a **Variable**.
 
 ### Only set Cookie if Consent is given
-Is this cookie necessary (it's needed to block duplicate transactions for analytics/marketing), functional (the website wouldn't break if this cookie didn't exist), or does it need consent (even if the cookie prevents tracking)?
 If your definition is that this cookie needs consent, this setting makes it possible to set the cookie based on that.
 
 Which level of Consent needed for setting the cookie, and which incoming parameter to check for consent is up to you. But if you for example are using **Google Consent Mode**, you could check against the **gcs** parameter.
