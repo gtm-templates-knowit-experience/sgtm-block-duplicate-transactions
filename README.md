@@ -1,5 +1,5 @@
 # Block Duplicate Transactions - SGTM Variable
-This Variable for **Google Tag Manager Server-side (SGTM)** that makes it possible to **Block Duplicate Ecommerce Transactions** from being sent to your analytics/marketing tools.
+This Variable for **Google Tag Manager Server-side (SGTM)** makes it possible to **Block Duplicate Ecommerce Transactions** from being sent to your analytics/marketing tools.
 
 ## How the Variable Works
 Incoming **transaction_id** will be checked against **earlier transaction id's** from the user stored in a cookie. If **a match is found**, the Variable will return **true** (duplicate is true). We can then block transactions from being sent based on this output.
