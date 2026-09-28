@@ -2,8 +2,10 @@ homepage: "https://github.com/gtm-templates-knowit-experience/"
 documentation: "https://github.com/gtm-templates-knowit-experience/sgtm-block-duplicate-transactions"
 versions:
   # Latest version
+  - sha: c320832a0cb36047c1d110a36f9cdf5c7bc2692f
+    changeNotes: Upgraded the template from a cookie-only solution to support robust server-side deduplication. It now features atomic operations for Google Cloud Firestore and native integration for Stape Store.
+  # Older versions
   - sha: 34fef9d44dd1fd0698ad758b4f06723f57ba0842
     changeNotes: Added support for Hashing Transaction ID and support for consent.
-  # Older versions
   - sha: 1e3bea62b01761118d08a2a29d54827dfd678517
     changeNotes: Initial release.
