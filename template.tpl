@@ -14,7 +14,7 @@ ___INFO___
   "version": 1,
   "securityGroups": [],
   "displayName": "Block Duplicate Transactions",
-  "description": "Block Duplicate Ecommerce Transactions by checking incoming transaction_id  against previous transaction_id\u0027s is stored in a cookie.",
+  "description": "Block duplicate transactions by checking transaction_id against a cookie, Stape Store, or atomic Firestore operations. Supports cookie-only, database-only, or hybrid modes.",
 "categories": ["UTILITY","ANALYTICS","TAG_MANAGEMENT"],
   "containerContexts": [
     "SERVER"
@@ -68,17 +68,133 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "GROUP",
+    "name": "Generic Settings",
+    "displayName": "Generic Settings",
+    "groupStyle": "NO_ZIPPY",
+    "subParams": [
+      {
+        "type": "TEXT",
+        "name": "allowedEvents",
+        "displayName": "Events to Deduplicate",
+        "simpleValueType": true,
+        "valueValidators": [
+          {
+            "type": "NON_EMPTY"
+          }
+        ],
+        "help": "Enter the events to deduplicate (e.g., \u003cb\u003epurchase\u003c/b\u003e, \u003cb\u003erefund\u003c/b\u003e).\n\u003cbr /\u003e\u003cbr /\u003e\n\u003cb\u003eNote:\u003c/b\u003e This blocks identical \u003cb\u003eevent + transaction ID\u003c/b\u003e combinations. If you process multiple partial refunds for a single order, the second refund will be blocked. To prevent this, either remove \u0027refund\u0027 from this list, or pass a custom constructed ID (e.g., \u003cb\u003etransaction_id + refund_id\u003c/b\u003e) into the Transaction ID Input field above.",
+        "alwaysInSummary": true,
+        "defaultValue": "purchase, refund"
+      },
+      {
+        "type": "SELECT",
+        "name": "deduplicationMode",
+        "displayName": "Deduplication Method",
+        "macrosInSelect": false,
+        "selectItems": [
+          {
+            "value": "cookie_only",
+            "displayValue": "Cookies"
+          },
+          {
+            "value": "cookie_and_db",
+            "displayValue": "Cookies and Database"
+          },
+          {
+            "value": "db_only",
+            "displayValue": "Database only"
+          }
+        ],
+        "simpleValueType": true,
+        "defaultValue": "cookie_only",
+        "help": ""
+      },
+      {
+        "type": "TEXT",
+        "name": "cookieExpiration",
+        "displayName": "Expiration (Days)",
+        "simpleValueType": true,
+        "valueValidators": [
+          {
+            "type": "POSITIVE_NUMBER"
+          }
+        ],
+        "defaultValue": 30,
+        "help": "Enter how many days data should be stored.",
+        "valueHint": "30",
+        "alwaysInSummary": true
+      },
+      {
+        "type": "CHECKBOX",
+        "name": "sha256Sync",
+        "checkboxText": "Hash transaction_id as SHA-256",
+        "simpleValueType": true,
+        "help": "Hash \u003cstrong\u003etransaction_id\u003c/strong\u003e stored with \u003cstrong\u003eSHA-256\u003c/strong\u003e . Highly recommended.\n\u003cbr/\u003e\u003cbr/\u003e\nThis makes the \u003cstrong\u003etransaction_id\u003c/strong\u003e stored unrecognizable.\n\u003cbr/\u003e\u003cbr/\u003e\n\u003cb\u003eNote:\u003c/b\u003e Changing hash settings after publishing will create a new identity namespace, meaning existing stored IDs will no longer match new ones.",
+        "alwaysInSummary": true,
+        "defaultValue": true
+      },
+      {
+        "type": "SELECT",
+        "name": "sha256Encoding",
+        "displayName": "SHA-256 Encoding",
+        "selectItems": [
+          {
+            "value": "hex",
+            "displayValue": "Hex"
+          },
+          {
+            "value": "base64",
+            "displayValue": "Base64"
+          }
+        ],
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "sha256Sync",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ],
+        "help": "Select the output format for the hash. Hex (Recommended) produces a standard 64-character string (numbers and letters only) that is natively supported by most marketing platforms. Base64 produces a shorter string, but includes special characters (like + or /) that can sometimes cause issues in URLs or certain databases."
+      }
+    ]
+  },
+  {
+    "type": "GROUP",
     "name": "consentGroup",
     "displayName": "Consent Check",
-    "groupStyle": "NO_ZIPPY",
+    "groupStyle": "ZIPPY_OPEN_ON_PARAM",
     "subParams": [
       {
         "type": "CHECKBOX",
         "name": "consentCheck",
-        "checkboxText": "Only set Cookie if Consent is given",
+        "checkboxText": "Enable Consent Check",
         "simpleValueType": true,
-        "help": "Only set Cookie with Transaction ID\u0027s if the user has given consent. \n\u003cbr /\u003e\n\u003cbr /\u003e\nWhich level of Consent needed for setting the cookie, and which incoming parameter to check is up to you. But if you for example are using \u003cstrong\u003eGoogle Consent Mode\u003c/strong\u003e, you could check against the \u003cstrong\u003egcs\u003c/strong\u003e parameter.\n\u003cbr /\u003e\n\u003cbr /\u003e\nIf the user \u003cstrong\u003ehaven\u0027t given consent\u003c/strong\u003e, any existing Block Duplicate Transactions \u003cstrong\u003ecookie will be deleted\u003c/strong\u003e.",
-        "alwaysInSummary": true
+        "help": "Check analytics consent before storing deduplication data (applies to cookies and database).",
+        "alwaysInSummary": true,
+        "defaultValue": true
+      },
+      {
+        "type": "RADIO",
+        "name": "consentConfigMode",
+        "radioItems": [
+          {
+            "value": "auto",
+            "displayValue": "Detect analytics consent automatically"
+          },
+          {
+            "value": "manual",
+            "displayValue": "Map consent values manually"
+          }
+        ],
+        "simpleValueType": true,
+        "enablingConditions": [
+          {
+            "paramName": "consentCheck",
+            "paramValue": true,
+            "type": "EQUALS"
+          }
+        ]
       },
       {
         "type": "SIMPLE_TABLE",
@@ -108,8 +224,8 @@ ___TEMPLATE_PARAMETERS___
         ],
         "enablingConditions": [
           {
-            "paramName": "consentCheck",
-            "paramValue": true,
+            "paramName": "consentConfigMode",
+            "paramValue": "manual",
             "type": "EQUALS"
           }
         ],
@@ -118,6 +234,34 @@ ___TEMPLATE_PARAMETERS___
         "valueValidators": [
           {
             "type": "NON_EMPTY"
+          }
+        ]
+      },
+      {
+        "type": "GROUP",
+        "name": "dbConsentGroup",
+        "subParams": [
+          {
+            "type": "CHECKBOX",
+            "name": "dbRequiresConsent",
+            "checkboxText": "Require Consent for Database Operations",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "deduplicationMode",
+                "paramValue": "cookie_only",
+                "type": "NOT_EQUALS"
+              }
+            ],
+            "help": "If checked, database deduplication strictly requires user consent. If unchecked, the database runs for all transactions regardless of consent. (Note: If a hybrid mode is used, cookies will still always respect consent).",
+            "defaultValue": true
+          }
+        ],
+        "enablingConditions": [
+          {
+            "paramName": "consentCheck",
+            "paramValue": true,
+            "type": "EQUALS"
           }
         ]
       }
@@ -131,42 +275,11 @@ ___TEMPLATE_PARAMETERS___
     "subParams": [
       {
         "type": "CHECKBOX",
-        "name": "sha256Sync",
-        "checkboxText": "Hash transaction_id as SHA-256",
-        "simpleValueType": true,
-        "help": "Hash \u003cstrong\u003etransaction_id\u003c/strong\u003e stored in the cookie with \u003cstrong\u003eSHA-256\u003c/strong\u003e .\n\u003cbr/\u003e\u003cbr/\u003e\nThis makes the \u003cstrong\u003etransaction_id\u003c/strong\u003e stored in the cookie unrecognizable.",
-        "alwaysInSummary": true
-      },
-      {
-        "type": "SELECT",
-        "name": "sha256Encoding",
-        "displayName": "SHA-256 Encoding",
-        "selectItems": [
-          {
-            "value": "base64",
-            "displayValue": "Base64"
-          },
-          {
-            "value": "hex",
-            "displayValue": "Hex"
-          }
-        ],
-        "simpleValueType": true,
-        "enablingConditions": [
-          {
-            "paramName": "sha256Sync",
-            "paramValue": true,
-            "type": "EQUALS"
-          }
-        ]
-      },
-      {
-        "type": "CHECKBOX",
         "name": "limitCookie",
         "checkboxText": "Limit  Cookie Size",
         "simpleValueType": true,
         "help": "Limit  number of Transaction ID\u0027s stored in the cookie to avoid that the size of the cookie grows too big.\n\u003cbr /\u003e\u003cbr /\u003e\nWhen the limit is reached, the oldest Transaction ID will be deleted from the cookie when a new Transaction ID is added.",
-        "alwaysInSummary": true
+        "alwaysInSummary": false
       },
       {
         "type": "TEXT",
@@ -186,7 +299,7 @@ ___TEMPLATE_PARAMETERS___
             "type": "POSITIVE_NUMBER"
           }
         ],
-        "alwaysInSummary": true
+        "alwaysInSummary": false
       },
       {
         "type": "TEXT",
@@ -205,22 +318,6 @@ ___TEMPLATE_PARAMETERS___
       },
       {
         "type": "TEXT",
-        "name": "cookieExpiration",
-        "displayName": "Cookie Expiration in Days",
-        "simpleValueType": true,
-        "valueValidators": [
-          {
-            "type": "POSITIVE_NUMBER"
-          }
-        ],
-        "defaultValue": 90,
-        "help": "Enter how many days the cookie should live.",
-        "alwaysInSummary": true,
-        "valueHint": "90",
-        "valueUnit": "days"
-      },
-      {
-        "type": "TEXT",
         "name": "cookieDomain",
         "displayName": "Cookie Domain",
         "simpleValueType": true,
@@ -230,8 +327,7 @@ ___TEMPLATE_PARAMETERS___
           {
             "type": "NON_EMPTY"
           }
-        ],
-        "alwaysInSummary": true
+        ]
       },
       {
         "type": "SELECT",
@@ -253,16 +349,199 @@ ___TEMPLATE_PARAMETERS___
           }
         ],
         "simpleValueType": true,
-        "help": "The SameSite attribute controls what contexts your cookie will be used in.  \n\u003cbr /\u003e\u003cbr /\u003e\nTo see the differences between Lax and Strict settings, see the \u003ca href\u003d\"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite\" target\u003d\"_blank\"\u003e\u003cstrong\u003eMDN documentation\u003c/strong\u003e\u003c/a\u003e. If set to \u0027Value not set\u0027 the SameSite attribute will not be written.",
-        "alwaysInSummary": true
+        "help": "The SameSite attribute controls what contexts your cookie will be used in.  \n\u003cbr /\u003e\u003cbr /\u003e\nTo see the differences between Lax and Strict settings, see the \u003ca href\u003d\"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite\" target\u003d\"_blank\"\u003e\u003cstrong\u003eMDN documentation\u003c/strong\u003e\u003c/a\u003e. If set to \u0027Value not set\u0027 the SameSite attribute will not be written."
       },
       {
         "type": "CHECKBOX",
         "name": "cookieHttpOnly",
         "checkboxText": "HttpOnly",
         "simpleValueType": true,
-        "help": "If \u003cstrong\u003echecked\u003c/strong\u003e,  the cookie is set as \u003cstrong\u003eHttpOnly\u003c/strong\u003e, which forbids JavaScript from accessing the cookie.",
+        "help": "If \u003cstrong\u003echecked\u003c/strong\u003e,  the cookie is set as \u003cstrong\u003eHttpOnly\u003c/strong\u003e, which forbids JavaScript from accessing the cookie."
+      }
+    ],
+    "enablingConditions": [
+      {
+        "paramName": "deduplicationMode",
+        "paramValue": "db_only",
+        "type": "NOT_EQUALS"
+      }
+    ]
+  },
+  {
+    "type": "GROUP",
+    "name": "databaseGroup",
+    "groupStyle": "NO_ZIPPY",
+    "subParams": [
+      {
+        "type": "SELECT",
+        "name": "dbType",
+        "displayName": "Select Database Provider",
+        "macrosInSelect": false,
+        "selectItems": [
+          {
+            "value": "firestore",
+            "displayValue": "Google Cloud Firestore"
+          },
+          {
+            "value": "stape",
+            "displayValue": "Stape Store"
+          }
+        ],
+        "simpleValueType": true,
+        "enablingConditions": [],
         "alwaysInSummary": true
+      },
+      {
+        "type": "GROUP",
+        "name": "firestoreGroup",
+        "subParams": [
+          {
+            "type": "TEXT",
+            "name": "firebaseProjectId",
+            "displayName": "Firebase Project ID",
+            "simpleValueType": true,
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ],
+            "help": "Enter your Google Cloud / Firebase Project ID. You can find this in your Google Cloud Console dashboard. (Example: my-company-analytics-123)"
+          },
+          {
+            "type": "TEXT",
+            "name": "firebasePath",
+            "displayName": "Firestore Collection Path",
+            "simpleValueType": true,
+            "valueValidators": [
+              {
+                "type": "REGEX",
+                "args": [
+                  "^[a-zA-Z0-9_-]+$"
+                ],
+                "errorMessage": "Path can only contain letters, numbers, underscores, and hyphens. No slashes allowed."
+              }
+            ],
+            "defaultValue": "duplicate_transactions",
+            "help": "The name of the collection where transaction IDs will be stored. (Default: duplicate_transactions)",
+            "alwaysInSummary": true
+          },
+          {
+            "type": "CHECKBOX",
+            "name": "addTtlTimestamp",
+            "checkboxText": "Add Date and time for Firestore TTL",
+            "simpleValueType": true,
+            "help": "Saves a specially formatted \u0027Date and time\u0027 timestamp (ISO 8601) required by Firestore\u0027s native Time-To-Live (TTL) engine. This allows Firestore to automatically delete old transactions based on your Cookie Expiration setting. Note: You must also create a TTL policy for this field in Firestore.",
+            "defaultValue": true
+          },
+          {
+            "type": "TEXT",
+            "name": "ttlFieldName",
+            "displayName": "Time-To-Live Field Name",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "addTtlTimestamp",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ],
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ],
+            "defaultValue": "time_to_live"
+          },
+          {
+            "type": "CHECKBOX",
+            "name": "addTimestamp",
+            "checkboxText": "Add Timestamp to document",
+            "simpleValueType": true,
+            "help": "Saves the exact time the transaction occurred. Highly recommended: You can use this field in Google Cloud to set up a TTL (Time-to-Live) policy to automatically delete old transactions."
+          },
+          {
+            "type": "TEXT",
+            "name": "timestampFieldName",
+            "displayName": "Timestamp Field Name",
+            "simpleValueType": true,
+            "enablingConditions": [
+              {
+                "paramName": "addTimestamp",
+                "paramValue": true,
+                "type": "EQUALS"
+              }
+            ],
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ],
+            "defaultValue": "timestamp",
+            "help": "The name of the field in your database document where the time will be saved (e.g., \"timestamp\", \"created_at\")."
+          }
+        ],
+        "enablingConditions": [
+          {
+            "paramName": "dbType",
+            "paramValue": "firestore",
+            "type": "EQUALS"
+          }
+        ],
+        "groupStyle": "NO_ZIPPY",
+        "displayName": "Google Cloud Firestore"
+      },
+      {
+        "type": "GROUP",
+        "name": "stapeGroup",
+        "displayName": "Stape Store",
+        "groupStyle": "ZIPPY_OPEN",
+        "subParams": [
+          {
+            "type": "TEXT",
+            "name": "stapeCollection",
+            "displayName": "Stape Store Collection Name",
+            "simpleValueType": true,
+            "defaultValue": "default",
+            "help": "Leave as \"default\" unless you have created a specific collection in Stape Store.",
+            "valueValidators": [
+              {
+                "type": "NON_EMPTY"
+              }
+            ],
+            "alwaysInSummary": true
+          }
+        ],
+        "enablingConditions": [
+          {
+            "paramName": "dbType",
+            "paramValue": "stape",
+            "type": "EQUALS"
+          }
+        ]
+      }
+    ],
+    "displayName": "Database Settings",
+    "enablingConditions": [
+      {
+        "paramName": "deduplicationMode",
+        "paramValue": "cookie_only",
+        "type": "NOT_EQUALS"
+      }
+    ]
+  },
+  {
+    "type": "GROUP",
+    "name": "advancedSettingsGroup",
+    "displayName": "Advanced Transaction ID handling",
+    "groupStyle": "ZIPPY_OPEN_ON_PARAM",
+    "subParams": [
+      {
+        "type": "TEXT",
+        "name": "ignoredIds",
+        "displayName": "Ignored Transaction IDs (Comma-separated)",
+        "simpleValueType": true,
+        "help": "Enter placeholder IDs that should never be deduplicated (e.g., 0, test_order). Separate multiple values with a comma.",
+        "valueHint": "0, test_order"
       }
     ]
   }
@@ -273,62 +552,379 @@ ___SANDBOXED_JS_FOR_SERVER___
 
 const queryPermission = require('queryPermission');
 const getEventData = require('getEventData');
+const setCookie = require('setCookie');
+const getCookieValues = require('getCookieValues');
+const JSON = require('JSON');
+const makeString = require('makeString');
+const encodeUriComponent = require('encodeUriComponent');
+const encodeUri = require('encodeUri');
+const getType = require('getType');
+const getTimestampMillis = require('getTimestampMillis');
+const makeInteger = require('makeInteger');
+const Math = require('Math');
+const sha256Sync = require('sha256Sync');
 
+// ==========================================
+// 1. EVENT GATEKEEPER (Fail-fast for ignored events)
+// ==========================================
+const eventName = getEventData('event_name');
+
+// Split user input by comma and trim spaces
+const allowedEvents = data.allowedEvents.split(',').map(function(e) {
+  return e.trim();
+});
+
+// If the current event is NOT in the allowed list, immediately exit.
+if (allowedEvents.indexOf(eventName) === -1) {
+  return false; 
+}
+
+// ==========================================
+// 2. FETCH ID & GUARD CLAUSES
+// ==========================================
 const keyPath = 'transaction_id';
-if (queryPermission('read_event_data', keyPath)) {
-  let transaction_id = data.transactionIdVariable ? data.transactionIdVariable : getEventData(keyPath);
+let raw_transaction_id;
 
-  if(transaction_id) {
-    const setCookie = require('setCookie');
-    const cookieName = data.cookieName;
-    const cookieOptions = {
-      domain: data.cookieDomain,
-      path: '/',
-      sameSite: data.cookieSameSite,
-      secure: true
-    };
+if (data.transactionIdVariable !== undefined && data.transactionIdVariable !== null && makeString(data.transactionIdVariable).trim() !== '') {
+  raw_transaction_id = data.transactionIdVariable;
+} else {
+  if (!queryPermission('read_event_data', keyPath)) return false;
+  raw_transaction_id = getEventData(keyPath);
+}
 
-    let consent = true;
-    if(data.consentCheck && data.consentParam) {
-      data.consentParam.forEach((consentArray) => {
-        if (consentArray.consentInput === consentArray.consentValue) {
-          consent = true;
-        } else {
-          consent = false;
-          cookieOptions['max-age'] = 0;
-          setCookie(cookieName, '', cookieOptions);
-        }
-      });
-    }
-    if(consent){ 
-      const JSON = require('JSON');
-      const getCookieValues = require('getCookieValues');
-      if (queryPermission('get_cookies', cookieName)) {
-        let cookieValue = getCookieValues(cookieName).length>0 ? JSON.parse(getCookieValues(cookieName)) : JSON.parse('[]');
-      
-        if(data.sha256Sync) {
-          const sha256Sync = require('sha256Sync');
-          transaction_id = sha256Sync(transaction_id, {outputEncoding: data.sha256Encoding});
-        }
-      
-        if(cookieValue.indexOf(transaction_id) === -1) {
-          cookieValue.push(transaction_id);
-        
-          if(data.limitCookie && cookieValue.length > data.limitCookieNumber) {
-            cookieValue.splice(0, cookieValue.length-data.limitCookieNumber);        
-          }       
-        
-          cookieOptions['max-age'] = (data.cookieExpiration*86400);
-          if (data.cookieHttpOnly) cookieOptions.HttpOnly = data.cookieHttpOnly;
-          setCookie(cookieName, JSON.stringify(cookieValue), cookieOptions, true);
-            return false;
-       } else if(cookieValue.indexOf(transaction_id) > -1) {
-            return true;
-        }
-      }
+let tx_str = makeString(raw_transaction_id).trim();
+
+// Hardcoded safety net: Ignore blanks and serialized invalid values
+if (tx_str === '' || tx_str === 'null' || tx_str === 'undefined' || tx_str === 'NaN') {
+  return false; 
+}
+
+// User-defined Ignored IDs
+if (data.ignoredIds) {
+  const ignoredArray = makeString(data.ignoredIds).split(',');
+  for (let i = 0; i < ignoredArray.length; i++) {
+    const ignoredId = ignoredArray[i].trim();
+    if (ignoredId !== '' && tx_str === ignoredId) {
+      return false; 
     }
   }
 }
+
+// Optional hashing of the transaction ID before storage
+if (data.sha256Sync) {
+  tx_str = sha256Sync(tx_str, { outputEncoding: data.sha256Encoding});
+}
+
+// ==========================================
+// 3. NAMESPACING & DATABASE KEY CREATION
+// ==========================================
+// Use a pipe to prevent collisions (e.g., "purchase|12345")
+const dedupKey = eventName + '|' + tx_str;
+
+// ==========================================
+// 4. CONFIGURATION VALIDATION & MODES
+// ==========================================
+const expirationDays = makeInteger(data.cookieExpiration);
+const cookieLimit = makeInteger(data.limitCookieNumber);
+
+// Migration fallback for older template versions
+let mode = data.deduplicationMode;
+if (mode !== 'cookie_only' && mode !== 'db_only' && mode !== 'cookie_and_db') {
+  mode = 'cookie_only';
+}
+
+let useCookie = (mode === 'cookie_only' || mode === 'cookie_and_db');
+let useDb = (mode === 'db_only' || mode === 'cookie_and_db');
+
+// ==========================================
+// 5. COOKIE OPTIONS & CONSENT GATE
+// ==========================================
+const cookieName = data.cookieName; 
+let consent = true;
+
+const writeOptions = {
+  domain: data.cookieDomain,
+  path: '/',
+  samesite: data.cookieSameSite,
+  secure: true,
+  'max-age': expirationDays * 86400
+};
+if (data.cookieHttpOnly) writeOptions.httpOnly = true;
+
+if (data.consentCheck) {
+  const consentMode = data.consentConfigMode; 
+
+  if (consentMode === 'auto') {
+    let hasAnalyticsConsent = false;
+    let parsedGoogleConsent = false;
+
+    const xGaGcd = getEventData('x-ga-gcd');
+    if (xGaGcd && getType(xGaGcd) === 'string') {
+      let letters = [];
+      for (let i = 0; i < xGaGcd.length; i++) {
+        let char = xGaGcd[i].toLowerCase();
+        if (char >= 'a' && char <= 'z') letters.push(char);
+      }
+      if (letters.length >= 2) {
+        const analyticsLetter = letters[1]; 
+        const grantedStatuses = ['t', 'r', 'n', 'v'];
+        if (grantedStatuses.indexOf(analyticsLetter) !== -1) hasAnalyticsConsent = true;
+        parsedGoogleConsent = true;
+      }
+    }
+
+    if (!parsedGoogleConsent) {
+      const xGaGcs = getEventData('x-ga-gcs');
+      if (xGaGcs && getType(xGaGcs) === 'string' && xGaGcs.length >= 4 && xGaGcs[0] === 'G' && xGaGcs[1] === '1') {
+        if (xGaGcs[3] === '1') hasAnalyticsConsent = true;
+        parsedGoogleConsent = true;
+      }
+    }
+    consent = hasAnalyticsConsent;
+
+  } else {
+    if (data.consentParam) {
+      data.consentParam.forEach((consentRow) => {
+        if (consentRow.consentInput !== consentRow.consentValue) consent = false;
+      });
+    }
+  }
+}
+
+if (!consent) {
+  if (useCookie) {
+    const deleteOptions = {
+      domain: data.cookieDomain,
+      path: '/',
+      samesite: data.cookieSameSite,
+      secure: true,
+      'max-age': 0
+    };
+    if (queryPermission('set_cookies', cookieName, deleteOptions)) {
+      setCookie(cookieName, '', deleteOptions);
+    }
+    useCookie = false; // Turn off cookies for the rest of the script
+  }
+  
+  // Exit script completely IF database requires consent OR if database isn't used
+  if (!useDb || data.dbRequiresConsent) {
+    return false; 
+  }
+}
+
+// ==========================================
+// 6. READ COOKIE (CACHE)
+// ==========================================
+let cookieValue = [];
+let foundInCookie = false;
+let canUseCookie = false;
+
+if (useCookie) {
+  canUseCookie = queryPermission('get_cookies', cookieName);
+  
+  if (canUseCookie) {
+    const rawCookies = getCookieValues(cookieName);
+    if (rawCookies && rawCookies.length > 0) {
+      const parsed = JSON.parse(rawCookies[0]);
+      if (getType(parsed) === 'array') cookieValue = parsed;
+    }
+    foundInCookie = cookieValue.indexOf(dedupKey) > -1;
+  }
+
+  // Cost-saving early exit
+  if (foundInCookie) {
+    return true; 
+  }
+}
+
+const saveToCookie = function() {
+  if (!useCookie || !canUseCookie || cookieValue.indexOf(dedupKey) !== -1) return;
+  if (!queryPermission('set_cookies', cookieName, writeOptions)) return;
+
+  cookieValue.push(dedupKey);
+  
+  if (data.limitCookie && cookieValue.length > cookieLimit) {
+    cookieValue.splice(0, cookieValue.length - cookieLimit);
+  }
+
+  let serialized = JSON.stringify(cookieValue);
+  let encoded = encodeUriComponent(serialized);
+  
+  while (encoded && encoded.length > 3800 && cookieValue.length > 1) {
+    cookieValue.splice(0, 1);
+    serialized = JSON.stringify(cookieValue);
+    encoded = encodeUriComponent(serialized);
+  }
+
+  if (encoded && encoded.length <= 3800) {
+    setCookie(cookieName, serialized, writeOptions);
+  }
+};
+
+// ==========================================
+// 7. DATABASE DEDUPLICATION
+// ==========================================
+if (useDb) {
+  const sendHttpRequest = require('sendHttpRequest');
+  const currentTime = getTimestampMillis();
+  
+  // Create a hashed Document ID for Firestore/Stape URLs
+  const docId = sha256Sync(dedupKey, { outputEncoding: 'hex' });
+
+  // --- FIRESTORE NATIVE REST API (ATOMIC POST) ---
+  if (data.dbType === 'firestore') {
+    if (!data.firebaseProjectId) {
+      saveToCookie();
+      return false;
+    }
+
+    const getGoogleAuth = require('getGoogleAuth');
+    const projectId = encodeUriComponent(data.firebaseProjectId);
+    const collectionId = encodeUri(data.firebasePath);
+    
+    const firestoreUrl = 'https://firestore.googleapis.com/v1/projects/' + projectId + 
+                         '/databases/(default)/documents/' + collectionId + '?documentId=' + docId;
+
+    const auth = getGoogleAuth({ scopes: ['https://www.googleapis.com/auth/datastore'] });
+    
+    let fieldsObj = {
+      "transaction_id": { "stringValue": tx_str },
+      "event_name": { "stringValue": eventName }
+    };
+
+    if (data.addTimestamp) {
+      const tsField = data.timestampFieldName ? data.timestampFieldName : 'timestamp';
+      fieldsObj[tsField] = { "integerValue": makeString(currentTime) };
+    }
+
+    if (data.addTtlTimestamp) {
+      const getIsoTimestamp = function(ms) {
+        let days = Math.floor(ms / 86400000);
+        let year = 1970;
+        
+        for (let i = 0; i < 1000; i++) {
+          let isLeap = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+          let daysInYear = isLeap ? 366 : 365;
+          if (days >= daysInYear) {
+            days = days - daysInYear;
+            year = year + 1;
+          } else { break; }
+        }
+        
+        let isLeapYear = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+        let daysInMonth = [31, (isLeapYear ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let month = 0;
+        
+        for (let j = 0; j < 12; j++) {
+          if (days >= daysInMonth[j]) {
+            days = days - daysInMonth[j];
+            month = month + 1;
+          } else { break; }
+        }
+        
+        let day = days + 1;
+        let t = Math.floor(ms % 86400000);
+        let h = Math.floor(t / 3600000);
+        let min = Math.floor((t % 3600000) / 60000);
+        let s = Math.floor((t % 60000) / 1000);
+        let ms_rem = t % 1000;
+        
+        let pad = function(n) { return n < 10 ? '0' + makeString(n) : makeString(n); };
+        let ms_str = makeString(ms_rem);
+        if (ms_rem < 10) ms_str = '00' + ms_str;
+        else if (ms_rem < 100) ms_str = '0' + ms_str;
+
+        return makeString(year) + '-' + pad(month + 1) + '-' + pad(day) + 'T' + pad(h) + ':' + pad(min) + ':' + pad(s) + '.' + ms_str + 'Z';
+      };
+
+      const ttlField = data.ttlFieldName ? data.ttlFieldName : 'time_to_live';
+      const expireMillis = currentTime + (expirationDays * 86400000); 
+      fieldsObj[ttlField] = { "timestampValue": getIsoTimestamp(expireMillis) };
+    }
+
+    const postOptions = {
+      method: 'POST',
+      authorization: auth,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 4000
+    };
+
+    return sendHttpRequest(firestoreUrl, postOptions, JSON.stringify({ "fields": fieldsObj }))
+      .then((response) => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          saveToCookie();
+          return false; 
+        } else if (response.statusCode === 409) {
+          saveToCookie();
+          return true;  
+        }
+        saveToCookie();
+        return false;
+      })
+      .catch(() => {
+        saveToCookie();
+        return false;
+      });
+
+  // --- STAPE STORE NATIVE API (BEST EFFORT) ---
+  } else if (data.dbType === 'stape') {
+    const getRequestHeader = require('getRequestHeader');
+    
+    const stapeId = getRequestHeader('x-gtm-identifier');
+    const stapeDomain = getRequestHeader('x-gtm-default-domain');
+    const stapeKey = getRequestHeader('x-gtm-api-key');
+    
+    if (!stapeId || !stapeDomain || !stapeKey) {
+      saveToCookie();
+      return false;
+    }
+
+    const stapeUrl = 'https://' + encodeUriComponent(stapeId) +
+      '.' + encodeUriComponent(stapeDomain) +
+      '/stape-api/' + encodeUriComponent(stapeKey) +
+      '/v2/store/collections/' + encodeUriComponent(data.stapeCollection) +
+      '/documents/' + docId;
+
+    return sendHttpRequest(stapeUrl, { method: 'GET', timeout: 3000 }).then(function(response) {
+      if (response.statusCode === 200) {
+        saveToCookie();
+        return true;
+      } else if (response.statusCode === 404) {
+        
+        let stapeBody = { 
+          transaction_id: tx_str,
+          event_name: eventName 
+        };
+        
+        if (data.addTimestamp) {
+          const tsField = data.timestampFieldName ? data.timestampFieldName : 'timestamp';
+          stapeBody[tsField] = currentTime;
+        }
+
+        return sendHttpRequest(
+          stapeUrl,
+          { method: 'PUT', headers: { 'Content-Type': 'application/json' }, timeout: 3000 },
+          JSON.stringify(stapeBody)
+        ).then(function(putRes) {
+          saveToCookie();
+          return false;
+        }).catch(function() {
+          saveToCookie();
+          return false;
+        });
+      }
+      saveToCookie();
+      return false;
+    }).catch(function() {
+      saveToCookie();
+      return false;
+    });
+  }
+}
+
+// Fallback for cookie-only mode
+saveToCookie();
+return false;
 
 
 ___SERVER_PERMISSIONS___
@@ -370,6 +966,18 @@ ___SERVER_PERMISSIONS___
               {
                 "type": 1,
                 "string": "transaction_id"
+              },
+              {
+                "type": 1,
+                "string": "event_name"
+              },
+              {
+                "type": 1,
+                "string": "x-ga-gcs"
+              },
+              {
+                "type": 1,
+                "string": "x-ga-gcd"
               }
             ]
           }
@@ -456,6 +1064,168 @@ ___SERVER_PERMISSIONS___
       "isEditedByUser": true
     },
     "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "read_request",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "headerWhitelist",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "headerName"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "x-gtm-identifier"
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "headerName"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "x-gtm-default-domain"
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "headerName"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "x-gtm-api-key"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "key": "headersAllowed",
+          "value": {
+            "type": 8,
+            "boolean": true
+          }
+        },
+        {
+          "key": "requestAccess",
+          "value": {
+            "type": 1,
+            "string": "specific"
+          }
+        },
+        {
+          "key": "headerAccess",
+          "value": {
+            "type": 1,
+            "string": "specific"
+          }
+        },
+        {
+          "key": "queryParameterAccess",
+          "value": {
+            "type": 1,
+            "string": "any"
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "send_http",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "allowedUrls",
+          "value": {
+            "type": 1,
+            "string": "specific"
+          }
+        },
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://firestore.googleapis.com/*"
+              },
+              {
+                "type": 1,
+                "string": "https://*.stape.io/*"
+              },
+              {
+                "type": 1,
+                "string": "https://*.stape.net/*"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "use_google_credentials",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "allowedScopes",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://www.googleapis.com/auth/datastore"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
   }
 ]
 
@@ -463,13 +1233,8 @@ ___SERVER_PERMISSIONS___
 ___TESTS___
 
 scenarios: []
-setup: |-
-  const transactionIdCookie = ["T1234","ABC"];
-  const transaction_id = "ABC";
-
 
 ___NOTES___
 
 Created on 8/31/2021, 9:02:14 PM
-
 
