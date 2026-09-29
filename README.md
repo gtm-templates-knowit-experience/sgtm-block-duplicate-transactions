@@ -137,4 +137,4 @@ I recommend using a blocking trigger.
 
 ![Trigger Settings for Blocking Duplicate Transactions](images/sgtm-block-duplicate-transactions-existing-trigger.png)
 
-Solution by [**Eivind Savio**](https://www.savio.no/) from [**Knowit AI & Analytics**](https://www.knowit.no/hva-vi-tilbyr/merkevare-og-markedsforing/maling-og-dataanalyse/) (Oslo, Norway). Not officially supported by Knowit.
+Solution by [**Eivind Savio**](https://www.savio.no/google-tag-manager/block-duplicate-transactions-atomic-firestore-solution) from [**Knowit AI & Analytics**](https://www.knowit.no/hva-vi-tilbyr/merkevare-og-markedsforing/maling-og-dataanalyse/) (Oslo, Norway). Not officially supported by Knowit.
