@@ -119,12 +119,12 @@ Stape Store is a built-in database solution exclusively for sGTM containers host
 3. **Time-to-live** settings for Stape Store are managed directly inside your **Stape Store collection settings** in the Stape Dashboard.
 
 ## Trigger Settings for Blocking Duplicate Transactions
-You can either include the rule into your existing (purchase) trigger or create a dedicated blocking trigger.
+You can either include the rule into your existing trigger or create a dedicated blocking trigger.
 
 ### Blocking Trigger (Exception)
 I recommend using a blocking trigger.
 
-- Add the condition as shown in the image below:
+- Add the events you want to deduplicate. In the example below, both `purchas`e and `refund` are protected.
   * TheNameYouHaveGivenThisVariable *equals* **true**
 
 ![Trigger Settings for Blocking Duplicate Transactions](images/sgtm-block-duplicate-transactions-blocking-trigger.png)
